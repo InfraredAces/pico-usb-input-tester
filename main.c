@@ -133,6 +133,45 @@ float arravg(float a[], int num_elements)
    return(avg);
 }
 
+//--------------------------------------------------------------------+
+// PIO USB Configuration
+//--------------------------------------------------------------------+
+
+// Pin D+ for host, D- = D+ + 1
+#ifndef PIN_USB_HOST_DP
+#define PIN_USB_HOST_DP       16
+#endif
+
+// Pin for enabling Host VBUS on USB Host. comment out if not used
+#ifndef PIN_5V_EN
+#define PIN_5V_EN        18
+#endif
+
+#ifndef PIN_5V_EN_STATE
+#define PIN_5V_EN_STATE  true
+#endif
+
+static void enablePin5V()
+{
+  gpio_init(PIN_5V_EN);             // Initialize pin
+  gpio_set_dir(PIN_5V_EN, GPIO_OUT); // Set as output
+  gpio_put(PIN_5V_EN, PIN_5V_EN_STATE);
+}
+
+#ifndef PIN_ONBOARD_LED
+#define PIN_ONBOARD_LED  13
+#endif
+
+static void enableOnboardLED()
+{
+  gpio_init(PIN_ONBOARD_LED);             // Initialize pin
+  gpio_set_dir(PIN_ONBOARD_LED, GPIO_OUT); // Set as output
+}
+
+#ifndef PIN_SIGNAL
+#define PIN_SIGNAL  26
+#endif
+
 /*------------- MAIN -------------*/
 
 // core1: handle host events
@@ -142,6 +181,11 @@ void core1_main() {
   // Use tuh_configure() to pass pio configuration to the host stack
   // Note: tuh_configure() must be called before
   pio_usb_configuration_t pio_cfg = PIO_USB_DEFAULT_CONFIG;
+
+  #ifdef PIN_USB_HOST_DP
+    pio_cfg.pin_dp = PIN_USB_HOST_DP;  // Change USB Host Data P/M pins
+  #endif
+
   tuh_configure(1, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pio_cfg);
 
   // To run USB SOF interrupt in core1, init host stack for pio_usb (roothub
@@ -160,14 +204,23 @@ int main(void) {
 
   sleep_ms(10);
 
+  #ifdef PIN_5V_EN
+    enablePin5V();
+  #endif
+
+  #ifdef PIN_ONBOARD_LED
+    enableOnboardLED();
+    gpio_put(PIN_ONBOARD_LED, true);
+  #endif
+
   multicore_reset_core1();
   // all USB task run in core1
   multicore_launch_core1(core1_main);
 
-  gpio_init(3);             // Initialize pin
-  gpio_set_dir(3, GPIO_OUT); // Set as INPUT
-  gpio_pull_up(3);          // Set as PULLUP
-  gpio_put(3, true);
+  gpio_init(PIN_SIGNAL);             // Initialize pin
+  gpio_set_dir(PIN_SIGNAL, GPIO_OUT); // Set as INPUT
+  gpio_pull_up(PIN_SIGNAL);          // Set as PULLUP
+  gpio_put(PIN_SIGNAL, true);
 
   // init device stack on native usb (roothub port0)
   tud_init(0);
